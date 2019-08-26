@@ -41,13 +41,13 @@ namespace MetaSprite
         //需要忽视掉rootGroup作为一个layer读取的存在，以免占用一个index
         public Group rootGroup = new Group();
         public Dictionary<int, Group> mapGroup = new Dictionary<int, Group>();
+        //layers可能需要移除
         public Dictionary<int, Layer> layers = new Dictionary<int, Layer>();
         public List<FrameTag> frameTags = new List<FrameTag>();
 
         public ASEFile()
         {
             rootGroup.index = -1;
-            //rootGroup.level = -1;
             rootGroup.name = "";
             rootGroup.parent = null;
             rootGroup.parentIndex = -100;
@@ -75,7 +75,7 @@ namespace MetaSprite
     {
         public int index;
         public int parentIndex; // =1 if level==0 (have no parent), otherwise the index of direct parent
-        public bool visible;
+        //public bool visible;
         public BlendMode blendMode;
         public float opacity;
         public string layerName;
@@ -146,30 +146,13 @@ namespace MetaSprite
     public class Group
     {
         public int index;
-        //public int level;
         public int parentIndex;
-        public bool visible;
+        //public bool visible;
         public string name;
 
         public Group parent = null;
         public List<Group> childGroup = new List<Group>();
         public List<Layer> layers = new List<Layer>();
-
-        //public Group Parent
-        //{
-        //    get
-        //    {
-        //        if (name.StartsWith("//"))
-        //            return _parent._parent;
-        //        else
-        //            return _parent;
-        //    }
-
-        //    set
-        //    {
-        //        _parent = value;
-        //    }
-        //}
 
     }
 
@@ -293,8 +276,8 @@ namespace MetaSprite
 
                 UserDataAcceptor lastUserdataAcceptor = null;
 
+                Dictionary<int, Group> tempMapGroup = new Dictionary<int, Group>(file.mapGroup);
                 var levelToIndex = new Dictionary<int, int>();
-                //var enabledLayerIdxs = new List<int>();
 
                 for (int i = 0; i < frameCount; ++i)
                 {
@@ -334,21 +317,30 @@ namespace MetaSprite
                                         if (layerType == 1)
                                         {
                                             var group = new Group();
-                                            group.visible = visible;
+                                            //group.visible = visible;
                                             group.index = readLayerIndex;
-                                            //group.level = childLevel;
                                             group.parentIndex = childLevel == 0 ? -1 : levelToIndex[childLevel - 1];
-                                            group.parent = file.mapGroup[group.parentIndex];
+                                            group.parent = tempMapGroup[group.parentIndex];
                                             group.name = name;
 
-                                            //还没有增加//开头判定
-                                            file.mapGroup[group.parentIndex].childGroup.Add(group);
-                                            file.mapGroup.Add(group.index, group);
+                                            tempMapGroup.Add(group.index, group);
+                                            if (name.StartsWith("//"))
+                                            {
+                                                group.layers = group.parent.layers;
+                                                group.childGroup = group.parent.childGroup;
+                                                group.parentIndex = group.parent.parentIndex;
+                                            }
+                                            else
+                                            {
+                                                file.mapGroup.Add(group.index, group);
+                                            }
+                                            group.parent.childGroup.Add(group);
                                         }
-                                        else if (layerType == 0)
+                                        else if (layerType == 0 && !name.StartsWith("//"))
                                         {
+                                            //if (name.StartsWith("//")) break;
                                             var layer = new Layer();
-                                            layer.visible = visible;
+                                            //layer.visible = visible;
                                             layer.parentIndex = childLevel == 0 ? -1 : levelToIndex[childLevel - 1];
                                             layer.blendMode = blendMode;
                                             layer.opacity = opacity;
@@ -361,7 +353,7 @@ namespace MetaSprite
                                             }
 
                                             file.layers.Add(layer.index, layer);
-                                            file.mapGroup[layer.parentIndex].layers.Add(layer);
+                                            tempMapGroup[layer.parentIndex].layers.Add(layer);
 
                                         }
                                     }

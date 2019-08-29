@@ -6,7 +6,7 @@ namespace MetaSprite
 {
 
     public abstract class MetaLayerProcessor
-    {   
+    {
 
         public abstract string actionName { get; }
 

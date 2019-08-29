@@ -123,10 +123,10 @@ namespace MetaSprite
             {
                 ImportStage(context, Stage.LoadFile);
                 context.file = ASEParser.Parse(File.ReadAllBytes(path));
-                       
+
                 context.atlasPath = Path.Combine(settings.atlasOutputDirectory, context.fileNameNoExt + ".png");
 
-                if (settings.controllerPolicy == AnimControllerOutputPolicy.CreateOrOverride)   
+                if (settings.controllerPolicy == AnimControllerOutputPolicy.CreateOrOverride)
                     context.animControllerPath = settings.animControllerOutputPath + "/" + settings.baseName + ".controller";
                 context.animClipDirectory = settings.clipOutputDirectory;
 
@@ -138,6 +138,7 @@ namespace MetaSprite
                 //
 
                 ImportStage(context, Stage.GenerateAtlas);
+                //生成主要图集
                 context.generatedSprites = AtlasGenerator.GenerateAtlas(context,
                     context.file.layers.Values.Where(it => it.type == LayerType.Content).ToList(),
                     context.atlasPath);

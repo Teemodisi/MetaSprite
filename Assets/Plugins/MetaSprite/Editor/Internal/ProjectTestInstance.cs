@@ -2,9 +2,11 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace MetaSprite {
+namespace MetaSprite
+{
 
-public class ProjectTestInstance : ScriptableObject {
-}
+    public class ProjectTestInstance : ScriptableObject
+    {
+    }
 
 }

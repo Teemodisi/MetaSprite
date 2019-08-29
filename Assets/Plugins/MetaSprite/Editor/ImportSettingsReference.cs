@@ -2,12 +2,14 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace MetaSprite {
+namespace MetaSprite
+{
 
-public class ImportSettingsReference : ScriptableObject {
+    public class ImportSettingsReference : ScriptableObject
+    {
 
-    public ImportSettings settings;
-    
-}
+        public ImportSettings settings;
+
+    }
 
 }

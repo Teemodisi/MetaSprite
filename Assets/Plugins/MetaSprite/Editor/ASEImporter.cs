@@ -26,7 +26,7 @@ namespace MetaSprite
         public string animControllerPath;
         public string animClipDirectory;
 
-        public List<Sprite> generatedSprites = new List<Sprite>();
+        //public List<Sprite> generatedSprites = new List<Sprite>();
 
         // The local texture coordinate for bottom-left point of each frame's crop rect, in Unity texture space.
         public List<Vector2> spriteCropPositions = new List<Vector2>();
@@ -34,7 +34,7 @@ namespace MetaSprite
         public Dictionary<FrameTag, AnimationClip> generatedClips = new Dictionary<FrameTag, AnimationClip>();
 
         //所有生成独立图集的都是一个层动画意义上的图层
-        public Dictionary<string, List<Layer>> subImageLayers = new Dictionary<string, List<Layer>>();
+        public Dictionary<string, List<Sprite>> mapSprite = new Dictionary<string, List<Sprite>>();
 
     }
 
@@ -123,7 +123,7 @@ namespace MetaSprite
             {
                 ImportStage(context, Stage.LoadFile);
                 context.file = ASEParser.Parse(File.ReadAllBytes(path));
-
+                context.file.rootGroup.name = context.fileNameNoExt;
                 context.atlasPath = Path.Combine(settings.atlasOutputDirectory, context.fileNameNoExt + ".png");
 
                 if (settings.controllerPolicy == AnimControllerOutputPolicy.CreateOrOverride)
@@ -138,10 +138,15 @@ namespace MetaSprite
                 //
 
                 ImportStage(context, Stage.GenerateAtlas);
-                //生成主要图集
-                context.generatedSprites = AtlasGenerator.GenerateAtlas(context,
-                    context.file.layers.Values.Where(it => it.type == LayerType.Content).ToList(),
-                    context.atlasPath);
+                foreach (var group in context.file.mapGroup.Values)
+                {
+                    if (group.layers.Count == 0) continue;
+                    string atlasPath = Path.Combine(settings.atlasOutputDirectory, context.fileNameNoExt + "_" + group.name + ".png");
+                    var sprites = AtlasGenerator.GenerateAtlas(context,
+                        group.layers.Where(it => it.type == LayerType.Content).ToList(),
+                        atlasPath);
+                    context.mapSprite.Add(group.name, sprites);
+                }
 
                 ImportStage(context, Stage.GenerateClips);
                 GenerateAnimClips(context);
@@ -234,8 +239,6 @@ namespace MetaSprite
             Directory.CreateDirectory(ctx.animClipDirectory);
             var fileNamePrefix = ctx.animClipDirectory + '/' + ctx.settings.baseName;
 
-            string childPath = ctx.settings.spriteTarget;
-
             // Generate one animation for each tag
             foreach (var tag in ctx.file.frameTags)
             {
@@ -275,7 +278,20 @@ namespace MetaSprite
             }
 
             // Generate main image
-            GenerateClipImageLayer(ctx, childPath, ctx.generatedSprites);
+            foreach (var group in ctx.file.mapGroup.Values)
+            {
+                var temp = group;
+                string childPath = "";
+                while (temp.index != ctx.file.rootGroup.index)
+                {
+                    if (!temp.Available)
+                        childPath = "/" + temp.name + childPath;
+                    temp = temp.parent;
+                }
+                childPath = ctx.settings.spriteTarget + childPath;
+                GenerateClipImageLayer(ctx, childPath, ctx.mapSprite[group.name]);
+                Debug.Log(childPath);
+            }
         }
 
         static void GenerateAnimController(ImportContext ctx)

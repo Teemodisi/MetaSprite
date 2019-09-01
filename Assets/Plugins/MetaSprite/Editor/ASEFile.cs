@@ -38,10 +38,9 @@ namespace MetaSprite
     {
         public int width, height;
         public List<Frame> frames = new List<Frame>();
-        //需要忽视掉rootGroup作为一个layer读取的存在，以免占用一个index
+
         public Group rootGroup = new Group();
         public Dictionary<int, Group> mapGroup = new Dictionary<int, Group>();
-        //layers可能需要移除
         public Dictionary<int, Layer> layers = new Dictionary<int, Layer>();
         public List<FrameTag> frameTags = new List<FrameTag>();
 
@@ -51,7 +50,6 @@ namespace MetaSprite
             rootGroup.name = "";
             rootGroup.parent = null;
             rootGroup.parentIndex = -100;
-            mapGroup.Add(-1, rootGroup);
         }
 
         public Layer FindLayer(int index)
@@ -153,6 +151,15 @@ namespace MetaSprite
         public Group parent = null;
         public List<Group> childGroup = new List<Group>();
         public List<Layer> layers = new List<Layer>();
+
+        public bool Available
+        {
+            get
+            {
+                return name.StartsWith("//");
+            }
+        }
+
 
     }
 
@@ -277,6 +284,7 @@ namespace MetaSprite
                 UserDataAcceptor lastUserdataAcceptor = null;
 
                 Dictionary<int, Group> tempMapGroup = new Dictionary<int, Group>(file.mapGroup);
+                tempMapGroup.Add(-1, file.rootGroup);
                 var levelToIndex = new Dictionary<int, int>();
 
                 for (int i = 0; i < frameCount; ++i)
@@ -338,7 +346,6 @@ namespace MetaSprite
                                         }
                                         else if (layerType == 0 && !name.StartsWith("//"))
                                         {
-                                            //if (name.StartsWith("//")) break;
                                             var layer = new Layer();
                                             //layer.visible = visible;
                                             layer.parentIndex = childLevel == 0 ? -1 : levelToIndex[childLevel - 1];
@@ -458,6 +465,7 @@ namespace MetaSprite
                                         if (nameInvalid)
                                         {
                                             Debug.LogWarning("Invalid name: " + originalName);
+
                                         }
 
                                         file.frameTags.Add(frameTag);

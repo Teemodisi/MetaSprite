@@ -4,6 +4,14 @@ MetaSprite is an Unity plugin that lets you import [Aseprite][aseprite]'s .ase f
 
 MetaSprite is now ready for production (already used heavily by myself in a WIP action platformer). New features will gradually be added.
 
+#What modifications I want
+* 移除掉SubImage子图层元数据，用更直观的图层组层次来代替 √
+    * 因此在代码中添加了文件夹的记录和文件夹的注释功能 √
+    * 修复：在多次修改ase之后导入到clips中的参数中，该移除的参数没有被移除
+* 将元数据的核心功能从名字确定目标，更替为把同组精灵作为目标
+* 按照图层组层次,生成预制体
+* ...
+
 # Feature overview
 
 * Doesn't require external aseprite executable to run

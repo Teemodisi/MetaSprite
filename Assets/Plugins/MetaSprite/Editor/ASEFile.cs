@@ -47,7 +47,7 @@ namespace MetaSprite
         public ASEFile()
         {
             rootGroup.index = -1;
-            rootGroup.name = "";
+            rootGroup.Name = "Root";
             rootGroup.parent = null;
             rootGroup.parentIndex = -100;
         }
@@ -143,24 +143,47 @@ namespace MetaSprite
 
     public class Group
     {
+        private string name;
+
         public int index;
         public int parentIndex;
         //public bool visible;
-        public string name;
+        public string destName;
+        public string originName;
 
         public Group parent = null;
         public List<Group> childGroup = new List<Group>();
         public List<Layer> layers = new List<Layer>();
 
-        public bool Available
+        public bool Available { get { return originName.StartsWith("//"); } }
+        public bool IsHaveTarget { get { return destName.Length == 0; } }
+        public string Name
         {
-            get
+            set
             {
-                return name.StartsWith("//");
+                originName = value;
+                int nameIndex = originName.StartsWith("//") ? 2 : 0;
+                int targetIndex = originName.IndexOf("=>");
+
+                if (targetIndex != -1)
+                {
+                    destName = originName.Substring(targetIndex + 2);
+                    if (destName.Length == 0)
+                        Debug.LogError("Some layers have a target name that is empty, Plese give a unique name for that.");
+                }
+                else
+                {
+                    destName = "";
+                    targetIndex = originName.Length;
+                }
+
+                name = (destName.Length == 0 ? "" : destName + "_") + originName.Substring(nameIndex, targetIndex - nameIndex);
+                if (name.Length == 0)
+                    Debug.LogError("Some layer names is empty, Plese give a unique name for that.");
             }
+
+            get { return name; }
         }
-
-
     }
 
     internal enum CelType
@@ -329,7 +352,7 @@ namespace MetaSprite
                                             group.index = readLayerIndex;
                                             group.parentIndex = childLevel == 0 ? -1 : levelToIndex[childLevel - 1];
                                             group.parent = tempMapGroup[group.parentIndex];
-                                            group.name = name;
+                                            group.Name = name;
 
                                             tempMapGroup.Add(group.index, group);
                                             if (name.StartsWith("//"))

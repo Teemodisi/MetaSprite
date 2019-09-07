@@ -49,7 +49,8 @@ namespace MetaSprite
             GenerateAtlas,
             GenerateClips,
             GenerateController,
-            InvokeMetaLayerProcessor
+            InvokeMetaLayerProcessor,
+            GeneratePrefab
         }
 
         static float GetProgress(this Stage stage)
@@ -123,8 +124,8 @@ namespace MetaSprite
             {
                 ImportStage(context, Stage.LoadFile);
                 context.file = ASEParser.Parse(File.ReadAllBytes(path));
-                context.file.rootGroup.name = context.fileNameNoExt;
-                context.atlasPath = Path.Combine(settings.atlasOutputDirectory, context.fileNameNoExt + ".png");
+                context.file.rootGroup.Name = context.fileNameNoExt;
+                context.atlasPath = Path.Combine(settings.atlasOutputDirectory + "/" + context.fileNameNoExt + ".png");//!
 
                 if (settings.controllerPolicy == AnimControllerOutputPolicy.CreateOrOverride)
                     context.animControllerPath = settings.animControllerOutputPath + "/" + settings.baseName + ".controller";
@@ -141,11 +142,11 @@ namespace MetaSprite
                 foreach (var group in context.file.mapGroup.Values)
                 {
                     if (group.layers.Count == 0) continue;
-                    string atlasPath = Path.Combine(settings.atlasOutputDirectory, context.fileNameNoExt + "_" + group.name + ".png");
+                    string atlasPath = Path.Combine(settings.atlasOutputDirectory, context.fileNameNoExt + "_" + group.Name + ".png");
                     var sprites = AtlasGenerator.GenerateAtlas(context,
                         group.layers.Where(it => it.type == LayerType.Content).ToList(),
                         atlasPath);
-                    context.mapSprite.Add(group.name, sprites);
+                    context.mapSprite.Add(group.Name, sprites);
                 }
 
                 ImportStage(context, Stage.GenerateClips);
@@ -178,6 +179,9 @@ namespace MetaSprite
                             Debug.LogWarning(string.Format("No processor for meta layer {0}", layer.layerName));
                         }
                     });
+
+                ImportStage(context, Stage.GeneratePrefab);
+                GeneratePrefab(context);
             }
             catch (Exception e)
             {
@@ -285,12 +289,11 @@ namespace MetaSprite
                 while (temp.index != ctx.file.rootGroup.index)
                 {
                     if (!temp.Available)
-                        childPath = "/" + temp.name + childPath;
+                        childPath = "/" + temp.Name + childPath;
                     temp = temp.parent;
                 }
                 childPath = ctx.settings.spriteTarget + childPath;
-                GenerateClipImageLayer(ctx, childPath, ctx.mapSprite[group.name]);
-                Debug.Log(childPath);
+                GenerateClipImageLayer(ctx, childPath, ctx.mapSprite[group.Name]);
             }
         }
 
@@ -328,6 +331,11 @@ namespace MetaSprite
             }
 
             EditorUtility.SetDirty(controller);
+        }
+
+        static void GeneratePrefab(ImportContext ctx)
+        {
+
         }
 
         static void PopulateStateTable(Dictionary<string, AnimatorState> table, AnimatorStateMachine machine)

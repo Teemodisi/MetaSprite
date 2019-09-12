@@ -124,11 +124,10 @@ namespace MetaSprite
             {
                 ImportStage(context, Stage.LoadFile);
                 context.file = ASEParser.Parse(File.ReadAllBytes(path));
-                context.file.rootGroup.Name = context.fileNameNoExt;
                 context.atlasPath = Path.Combine(settings.atlasOutputDirectory + "/" + context.fileNameNoExt + ".png");//!
 
                 if (settings.controllerPolicy == AnimControllerOutputPolicy.CreateOrOverride)
-                    context.animControllerPath = settings.animControllerOutputPath + "/" + settings.baseName + ".controller";
+                    context.animControllerPath = settings.animControllerOutputPath + "/" + context.fileNameNoExt + ".controller";
                 context.animClipDirectory = settings.clipOutputDirectory;
 
                 // Create paths in advance
@@ -241,7 +240,7 @@ namespace MetaSprite
         static void GenerateAnimClips(ImportContext ctx)
         {
             Directory.CreateDirectory(ctx.animClipDirectory);
-            var fileNamePrefix = ctx.animClipDirectory + '/' + ctx.settings.baseName;
+            var fileNamePrefix = ctx.animClipDirectory + '/' + ctx.fileNameNoExt;
 
             // Generate one animation for each tag
             foreach (var tag in ctx.file.frameTags)
@@ -284,16 +283,8 @@ namespace MetaSprite
             // Generate main image
             foreach (var group in ctx.file.mapGroup.Values)
             {
-                var temp = group;
-                string childPath = "";
-                while (temp.index != ctx.file.rootGroup.index)
-                {
-                    if (!temp.Available)
-                        childPath = "/" + temp.Name + childPath;
-                    temp = temp.parent;
-                }
-                childPath = ctx.settings.spriteTarget + childPath;
-                GenerateClipImageLayer(ctx, childPath, ctx.mapSprite[group.Name]);
+                if (group.layers.Count == 0) continue;
+                GenerateClipImageLayer(ctx, group.Path, ctx.mapSprite[group.Name]);
             }
         }
 

@@ -47,9 +47,9 @@ namespace MetaSprite
         public ASEFile()
         {
             rootGroup.index = -1;
-            rootGroup.Name = "Root";
+            rootGroup.Name = "Sprites";
             rootGroup.parent = null;
-            rootGroup.parentIndex = -100;
+            rootGroup.parentIndex = -2;
         }
 
         public Layer FindLayer(int index)
@@ -79,6 +79,7 @@ namespace MetaSprite
         public string layerName;
         public string userData { get; set; }
         public LayerType type;
+        public Group group;
 
         // --- META
 
@@ -139,24 +140,24 @@ namespace MetaSprite
             return par;
         }
 
+        public string Path { get { return group.Path; } }
     }
 
     public class Group
     {
         private string name;
+        private string path;
 
         public int index;
         public int parentIndex;
-        //public bool visible;
         public string destName;
         public string originName;
-
         public Group parent = null;
         public List<Group> childGroup = new List<Group>();
         public List<Layer> layers = new List<Layer>();
 
-        public bool Available { get { return originName.StartsWith("//"); } }
-        public bool IsHaveTarget { get { return destName.Length == 0; } }
+        public bool Available { get { return !originName.StartsWith("//"); } }
+        public bool HaveTarget { get { return destName.Length != 0; } }
         public string Name
         {
             set
@@ -182,7 +183,18 @@ namespace MetaSprite
                     Debug.LogError("Some layer names is empty, Plese give a unique name for that.");
             }
 
-            get { return name; }
+            get => name;
+        }
+        public string Path
+        {
+            get
+            {
+                if (parent == null)
+                    return Name;
+                if (path is null)
+                    path = parent.Path + "/" + Name;
+                return path;
+            }
         }
     }
 
@@ -306,8 +318,10 @@ namespace MetaSprite
 
                 UserDataAcceptor lastUserdataAcceptor = null;
 
+                //TempMaps
                 Dictionary<int, Group> tempMapGroup = new Dictionary<int, Group>(file.mapGroup);
                 tempMapGroup.Add(-1, file.rootGroup);
+                Dictionary<string, Group> destName2Group = new Dictionary<string, Group>();
                 var levelToIndex = new Dictionary<int, int>();
 
                 for (int i = 0; i < frameCount; ++i)
@@ -345,6 +359,7 @@ namespace MetaSprite
 
                                     if (visible)
                                     {
+                                        //Groups
                                         if (layerType == 1)
                                         {
                                             var group = new Group();
@@ -354,24 +369,49 @@ namespace MetaSprite
                                             group.parent = tempMapGroup[group.parentIndex];
                                             group.Name = name;
 
-                                            tempMapGroup.Add(group.index, group);
                                             if (name.StartsWith("//"))
                                             {
-                                                group.layers = group.parent.layers;
-                                                group.childGroup = group.parent.childGroup;
-                                                group.parentIndex = group.parent.parentIndex;
+                                                tempMapGroup.Add(group.index, group.parent);
                                             }
                                             else
                                             {
+                                                if (group.HaveTarget)
+                                                {
+                                                    Group destGroup;
+                                                    if (destName2Group.ContainsKey(group.destName))
+                                                    {
+                                                        destGroup = destName2Group[group.destName];
+                                                    }
+                                                    else
+                                                    {
+                                                        destGroup = group;
+                                                        destGroup.Name = destGroup.destName;
+                                                        destGroup.index = -group.index - 100;//speciality index
+
+                                                        destName2Group.Add(destGroup.Name, destGroup);
+                                                        tempMapGroup.Add(destGroup.index, destGroup);
+                                                        file.mapGroup.Add(destGroup.index, destGroup);
+                                                        destGroup.parent.childGroup.Add(destGroup);
+
+                                                        group = new Group();
+                                                        group.index = readLayerIndex;
+                                                        group.Name = name;
+                                                    }
+                                                    group.parentIndex = destGroup.index;
+                                                    group.parent = destGroup;
+                                                }
+                                                tempMapGroup.Add(group.index, group);
                                                 file.mapGroup.Add(group.index, group);
+                                                group.parent.childGroup.Add(group);
                                             }
-                                            group.parent.childGroup.Add(group);
                                         }
+                                        //Layers
                                         else if (layerType == 0 && !name.StartsWith("//"))
                                         {
                                             var layer = new Layer();
                                             //layer.visible = visible;
                                             layer.parentIndex = childLevel == 0 ? -1 : levelToIndex[childLevel - 1];
+                                            layer.group = tempMapGroup[layer.parentIndex];
                                             layer.blendMode = blendMode;
                                             layer.opacity = opacity;
                                             layer.layerName = name;

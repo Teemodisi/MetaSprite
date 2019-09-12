@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEditor;
 using System.IO;
+using System.Linq;
 using System;
 using UnityEditor.Animations;
 
@@ -30,19 +31,22 @@ namespace MetaSprite
         public bool densePacked = true;
 
         public int border = 3;
-
-        public string baseName = ""; // If left empty, use .ase file name
-
-        public string spriteTarget = "";
-
+        
         public string atlasOutputDirectory = "";
 
         public string clipOutputDirectory = "";
+
+        public string prefabsDirectory = "";
 
         public AnimControllerOutputPolicy controllerPolicy;
 
         public string animControllerOutputPath;
 
+        public bool generatePrefab = false;
+
+        public int orderInLayerInterval = 5;
+
+        public int spritesSortInLayer = 0;
         public Vector2 PivotRelativePos
         {
             get
@@ -50,7 +54,6 @@ namespace MetaSprite
                 return alignment.GetRelativePos(customPivot);
             }
         }
-
     }
 
     [CustomEditor(typeof(ImportSettings))]
@@ -61,16 +64,14 @@ namespace MetaSprite
         {
             var settings = (ImportSettings)target;
             EditorGUI.BeginChangeCheck();
+            Undo.RecordObject(settings, "AseFileSettings");
 
             using (new GL.HorizontalScope(EditorStyles.toolbar))
             {
                 GL.Label("Options");
             }
-
-            settings.baseName = EGL.TextField("Base Name", settings.baseName);
-            settings.spriteTarget = EGL.TextField("Target Child Object", settings.spriteTarget);
-            EGL.Space();
-
+                      
+            settings.generatePrefab = EGL.Toggle("Generate Prefab", settings.generatePrefab);
             settings.ppu = EGL.IntField("Pixel Per Unit", settings.ppu);
             settings.alignment = (SpriteAlignment)EGL.EnumPopup("Default Align", settings.alignment);
             if (settings.alignment == SpriteAlignment.Custom)
@@ -80,6 +81,23 @@ namespace MetaSprite
 
             settings.densePacked = EGL.Toggle("Dense Pack", settings.densePacked);
             settings.border = EGL.IntField("Border", settings.border);
+
+            EGL.Space();
+            if (settings.generatePrefab)
+            {
+                using (new GL.HorizontalScope(EditorStyles.toolbar))
+                {
+                    GL.Label("Prefab Options");
+                }
+                EGL.BeginHorizontal();
+                settings.spritesSortInLayer = EGL.Popup("Sort In Layer", settings.spritesSortInLayer, SortingLayer.layers.Select(it => it.name).ToArray());
+                if (GL.Button("Edit", GL.Width(36)))
+                {
+                    Selection.objects = AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/TagManager.asset");
+                }
+                EGL.EndHorizontal();
+                settings.orderInLayerInterval = EGL.IntField("Interval of order in layer", settings.orderInLayerInterval);
+            }
 
             EGL.Space();
             using (new GL.HorizontalScope(EditorStyles.toolbar))
@@ -96,9 +114,14 @@ namespace MetaSprite
                 settings.animControllerOutputPath = PathSelection("Anim Controller Directory", settings.animControllerOutputPath);
             }
 
+            if (settings.generatePrefab)
+            {
+                settings.prefabsDirectory = PathSelection("Prefab Directory", settings.prefabsDirectory);
+            }
+
             if (EditorGUI.EndChangeCheck())
             {
-                EditorUtility.SetDirty(settings);
+                //EditorUtility.SetDirty(settings);
             }
         }
 

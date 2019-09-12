@@ -18,7 +18,7 @@ namespace MetaSprite
 
         public override void Process(ImportContext ctx, Layer layer)
         {
-            var childName = layer.GetParamString(0);
+            var childName = layer.group.Path;
 
             EditorCurveBinding
                 bindingX = new EditorCurveBinding { path = childName, type = typeof(Transform), propertyName = "m_LocalPosition.x" },

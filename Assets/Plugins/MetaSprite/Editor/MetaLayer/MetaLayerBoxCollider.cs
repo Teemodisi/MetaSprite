@@ -17,7 +17,7 @@ namespace MetaSprite
 
         public override void Process(ImportContext ctx, Layer layer)
         {
-            var path = layer.GetParamString(0);
+            var path = layer.group.Path;
             EditorCurveBinding
                 bindingOffX = Binding(path, typeof(BoxCollider2D), "m_Offset.x"),
                 bindingOffY = Binding(path, typeof(BoxCollider2D), "m_Offset.y"),
@@ -25,7 +25,7 @@ namespace MetaSprite
                 bindingSizeY = Binding(path, typeof(BoxCollider2D), "m_Size.y"),
                 bindingEnable = Binding(path, typeof(BoxCollider2D), "m_Enabled");
 
-            bool changeEnable = layer.ParamCount >= 2 ? layer.GetParamBool(1) : true;
+            bool changeEnable = layer.ParamCount >= 1 ? layer.GetParamBool(0) : true;
 
             List<Rect> frameRects = new List<Rect>();
             for (int i = 0; i < ctx.file.frames.Count; ++i)

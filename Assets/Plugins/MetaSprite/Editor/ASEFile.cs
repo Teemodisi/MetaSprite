@@ -50,6 +50,7 @@ namespace MetaSprite
             rootGroup.Name = "Sprites";
             rootGroup.parent = null;
             rootGroup.parentIndex = -2;
+            mapGroup.Add(rootGroup.index, rootGroup);
         }
 
         public Layer FindLayer(int index)
@@ -320,7 +321,6 @@ namespace MetaSprite
 
                 //TempMaps
                 Dictionary<int, Group> tempMapGroup = new Dictionary<int, Group>(file.mapGroup);
-                tempMapGroup.Add(-1, file.rootGroup);
                 Dictionary<string, Group> destName2Group = new Dictionary<string, Group>();
                 var levelToIndex = new Dictionary<int, int>();
 

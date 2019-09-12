@@ -18,6 +18,7 @@ namespace MetaSprite
         public override void Process(ImportContext ctx, Layer layer)
         {
             var path = layer.group.Path;
+            ctx.name2GameObject[layer.group.Name].AddComponent<BoxCollider2D>();
             EditorCurveBinding
                 bindingOffX = Binding(path, typeof(BoxCollider2D), "m_Offset.x"),
                 bindingOffY = Binding(path, typeof(BoxCollider2D), "m_Offset.y"),

@@ -25,8 +25,7 @@ namespace MetaSprite
         public string atlasPath;
         public string animControllerPath;
         public string animClipDirectory;
-
-        //public List<Sprite> generatedSprites = new List<Sprite>();
+        public string prefabDirectory;
 
         // The local texture coordinate for bottom-left point of each frame's crop rect, in Unity texture space.
         public List<Vector2> spriteCropPositions = new List<Vector2>();
@@ -36,6 +35,10 @@ namespace MetaSprite
         //所有生成独立图集的都是一个层动画意义上的图层
         public Dictionary<string, List<Sprite>> mapSprite = new Dictionary<string, List<Sprite>>();
 
+        public AnimatorController controller;
+
+        public GameObject rootGameObject;
+        public Dictionary<string, GameObject> name2GameObject = new Dictionary<string, GameObject>();
     }
 
     public static class ASEImporter
@@ -49,8 +52,8 @@ namespace MetaSprite
             GenerateAtlas,
             GenerateClips,
             GenerateController,
-            InvokeMetaLayerProcessor,
-            GeneratePrefab
+            GeneratePrefab,
+            InvokeMetaLayerProcessor
         }
 
         static float GetProgress(this Stage stage)
@@ -125,6 +128,7 @@ namespace MetaSprite
                 ImportStage(context, Stage.LoadFile);
                 context.file = ASEParser.Parse(File.ReadAllBytes(path));
                 context.atlasPath = Path.Combine(settings.atlasOutputDirectory + "/" + context.fileNameNoExt + ".png");//!
+                context.prefabDirectory = Path.Combine(settings.prefabsDirectory, context.fileNameNoExt + ".prefab");
 
                 if (settings.controllerPolicy == AnimControllerOutputPolicy.CreateOrOverride)
                     context.animControllerPath = settings.animControllerOutputPath + "/" + context.fileNameNoExt + ".controller";
@@ -135,6 +139,8 @@ namespace MetaSprite
                 Directory.CreateDirectory(context.animClipDirectory);
                 if (context.animControllerPath != null)
                     Directory.CreateDirectory(Path.GetDirectoryName(context.animControllerPath));
+                if (settings.generatePrefab)
+                    Directory.CreateDirectory(settings.prefabsDirectory);
                 //
 
                 ImportStage(context, Stage.GenerateAtlas);
@@ -153,6 +159,12 @@ namespace MetaSprite
 
                 ImportStage(context, Stage.GenerateController);
                 GenerateAnimController(context);
+
+                if (settings.generatePrefab)
+                {
+                    ImportStage(context, Stage.GeneratePrefab);
+                    GeneratePrefab(context);
+                }
 
                 ImportStage(context, Stage.InvokeMetaLayerProcessor);
                 context.file.layers.Values
@@ -179,8 +191,8 @@ namespace MetaSprite
                         }
                     });
 
-                ImportStage(context, Stage.GeneratePrefab);
-                GeneratePrefab(context);
+                if (context.rootGameObject != null)
+                    UnityEngine.Object.DestroyImmediate(context.rootGameObject);
             }
             catch (Exception e)
             {
@@ -296,13 +308,13 @@ namespace MetaSprite
                 return;
             }
 
-            var controller = AssetDatabase.LoadAssetAtPath<AnimatorController>(ctx.animControllerPath);
-            if (!controller)
+            ctx.controller = AssetDatabase.LoadAssetAtPath<AnimatorController>(ctx.animControllerPath);
+            if (!ctx.controller)
             {
-                controller = AnimatorController.CreateAnimatorControllerAtPath(ctx.animControllerPath);
+                ctx.controller = AnimatorController.CreateAnimatorControllerAtPath(ctx.animControllerPath);
             }
 
-            var layer = controller.layers[0];
+            var layer = ctx.controller.layers[0];
             var stateMap = new Dictionary<string, AnimatorState>();
             PopulateStateTable(stateMap, layer.stateMachine);
 
@@ -321,13 +333,47 @@ namespace MetaSprite
                 st.motion = clip;
             }
 
-            EditorUtility.SetDirty(controller);
+            EditorUtility.SetDirty(ctx.controller);
         }
 
         static void GeneratePrefab(ImportContext ctx)
         {
+            ctx.rootGameObject = new GameObject(ctx.fileNameNoExt);
+            ctx.name2GameObject.Add(ctx.fileNameNoExt, ctx.rootGameObject);
+            var controller = AssetDatabase.LoadAssetAtPath<AnimatorController>(ctx.animControllerPath);
+            ctx.rootGameObject.AddComponent<Animator>().runtimeAnimatorController = controller;
 
+            var mapGroup = ctx.file.mapGroup;
+            foreach (var group in mapGroup.Values)
+            {
+                var gameObject = new GameObject(group.Name);
+                if (group.Name == "Sprites")
+                {
+                    gameObject.transform.parent = ctx.rootGameObject.transform;
+                }
+                else
+                {
+                    var father = ctx.name2GameObject[mapGroup[group.parent.index].Name];
+                    gameObject.transform.parent = father.transform;
+                }
+                ctx.name2GameObject.Add(group.Name, gameObject);
+
+                if (group.layers.Count != 0)
+                {
+                    var sr = gameObject.AddComponent<SpriteRenderer>();
+                    sr.sprite = ctx.mapSprite[group.Name][0];
+                    var a = gameObject.transform.position;
+                    a.z = -group.index * 0.01f;
+                    gameObject.transform.position = a;
+                    sr.sortingOrder = group.index * ctx.settings.orderInLayerInterval;
+                    sr.sortingLayerID = ctx.settings.spritesSortInLayer;
+                }
+            }
+
+            PrefabUtility.SaveAsPrefabAssetAndConnect(ctx.rootGameObject, ctx.prefabDirectory, InteractionMode.UserAction);
         }
+
+
 
         static void PopulateStateTable(Dictionary<string, AnimatorState> table, AnimatorStateMachine machine)
         {

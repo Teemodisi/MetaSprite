@@ -361,9 +361,10 @@ namespace MetaSprite
                 {
                     var sr = gameObject.AddComponent<SpriteRenderer>();
                     sr.sprite = ctx.mapSprite[group.Name][0];
-                    var a = gameObject.transform.position;
-                    a.z = -group.index * 0.01f;
-                    gameObject.transform.position = a;
+                    //uncomment these codes, you can see how it sort in 3D view
+                    //var a = gameObject.transform.position;
+                    //a.z = -group.index * 0.01f;
+                    //gameObject.transform.position = a;
                     sr.sortingOrder = group.index * ctx.settings.orderInLayerInterval;
                     sr.sortingLayerID = ctx.settings.spritesSortInLayer;
                 }

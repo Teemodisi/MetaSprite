@@ -31,7 +31,7 @@ namespace MetaSprite
         public bool densePacked = true;
 
         public int border = 3;
-        
+
         public string atlasOutputDirectory = "";
 
         public string clipOutputDirectory = "";
@@ -72,7 +72,7 @@ namespace MetaSprite
             {
                 GL.Label("Options");
             }
-                      
+
             settings.generatePrefab = EGL.Toggle("Generate Prefab", settings.generatePrefab);
             settings.ppu = EGL.IntField("Pixel Per Unit", settings.ppu);
             settings.alignment = (SpriteAlignment)EGL.EnumPopup("Default Align", settings.alignment);
@@ -92,7 +92,10 @@ namespace MetaSprite
                     GL.Label("Prefab Options");
                 }
                 EGL.BeginHorizontal();
-                settings.spritesSortInLayer = EGL.Popup("Sort In Layer", settings.spritesSortInLayer, SortingLayer.layers.Select(it => it.name).ToArray());
+                int index = 0;
+                string[] opetions = SortingLayer.layers.Select(it => it.name).ToArray();
+                index = EGL.Popup("Sort In Layer", index, opetions);
+                settings.spritesSortInLayer = SortingLayer.NameToID(opetions[index]);
                 if (GL.Button("Edit", GL.Width(36)))
                 {
                     Selection.objects = AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/TagManager.asset");

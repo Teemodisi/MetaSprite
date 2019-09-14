@@ -57,9 +57,9 @@ namespace MetaSprite.Internal
                                     if (0 <= x && x < file.width &&
                                         0 <= y && y < file.height)
                                     { // Aseprite allows some pixels out of bounds to be kept, ignore them
-                                    var lastColor = image.GetPixel(x, y);
-                                    // blending
-                                    var color = Color.Lerp(lastColor, c, c.a);
+                                        var lastColor = image.GetPixel(x, y);
+                                        // blending
+                                        var color = Color.Lerp(lastColor, c, c.a);
                                         color.a = lastColor.a + c.a * (1 - lastColor.a);
                                         color.r /= color.a;
                                         color.g /= color.a;
@@ -67,8 +67,8 @@ namespace MetaSprite.Internal
 
                                         image.SetPixel(x, y, color);
 
-                                    // expand image area
-                                    image.minx = Mathf.Min(image.minx, x);
+                                        // expand image area
+                                        image.minx = Mathf.Min(image.minx, x);
                                         image.miny = Mathf.Min(image.miny, y);
 
                                         image.maxx = Mathf.Max(image.maxx, x);
@@ -86,7 +86,7 @@ namespace MetaSprite.Internal
 
                     if (!settings.densePacked)
                     { // override image border for sparsely packed atlas
-                    image.minx = image.miny = 0;
+                        image.minx = image.miny = 0;
                         image.maxx = file.width - 1;
                         image.maxy = file.height - 1;
                     }
@@ -117,6 +117,7 @@ namespace MetaSprite.Internal
 
             var metaList = new List<SpriteMetaData>();
 
+            List<Vector2> tempPos = new List<Vector2>();
             for (int i = 0; i < images.Count; ++i)
             {
                 var pos = packResult.positions[i];
@@ -143,10 +144,12 @@ namespace MetaSprite.Internal
                 var newPivotNorm = Vector2.Scale(newPivotTex, new Vector2(1.0f / image.finalWidth, 1.0f / image.finalHeight));
                 metadata.pivot = newPivotNorm;
 
-                ctx.spriteCropPositions.Add(new Vector2(image.minx, file.height - image.maxy - 1));
+                //ctx.spriteCropPositions.Add(new Vector2(image.minx, file.height - image.maxy - 1));
+                tempPos.Add(new Vector2(image.minx, file.height - image.maxy - 1));
 
                 metaList.Add(metadata);
             }
+            ctx.groupIndex2SpriteCropPositions.Add(layers[0].group.index, tempPos);
 
             var bytes = texture.EncodeToPNG();
 

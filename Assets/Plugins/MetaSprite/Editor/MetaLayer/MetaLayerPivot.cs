@@ -1,5 +1,4 @@
-
-
+using System.IO;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
@@ -26,8 +25,8 @@ namespace MetaSprite
             var pivots = new List<PivotFrame>();
 
             var file = ctx.file;
-
-            var importer = AssetImporter.GetAtPath(ctx.atlasPath) as TextureImporter;
+            var path = Path.Combine(ctx.settings.atlasOutputDirectory, ctx.fileNameNoExt + "_" + layer.group.Name + ".png");
+            var importer = AssetImporter.GetAtPath(path) as TextureImporter;
             var spriteSheet = importer.spritesheet;
 
             for (int i = 0; i < file.frames.Count; ++i)
@@ -72,7 +71,7 @@ namespace MetaSprite
                 while (j < pivots.Count && pivots[j].frame <= i) ++j; // j = index after found item
 
                 Vector2 pivot = pivots[j - 1].pivot;
-                pivot -= ctx.spriteCropPositions[i];
+                pivot -= ctx.groupIndex2SpriteCropPositions[layer.group.index][i];
                 pivot = Vector2.Scale(pivot, new Vector2(1.0f / spriteSheet[i].rect.width, 1.0f / spriteSheet[i].rect.height));
 
                 spriteSheet[i].pivot = pivot;

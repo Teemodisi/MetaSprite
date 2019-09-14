@@ -22,13 +22,13 @@ namespace MetaSprite
         public string fileName;
         public string fileNameNoExt;
 
-        public string atlasPath;
         public string animControllerPath;
         public string animClipDirectory;
         public string prefabDirectory;
 
         // The local texture coordinate for bottom-left point of each frame's crop rect, in Unity texture space.
         public List<Vector2> spriteCropPositions = new List<Vector2>();
+        public Dictionary<int, List<Vector2>> groupIndex2SpriteCropPositions = new Dictionary<int, List<Vector2>>();
 
         public Dictionary<FrameTag, AnimationClip> generatedClips = new Dictionary<FrameTag, AnimationClip>();
 
@@ -127,7 +127,6 @@ namespace MetaSprite
             {
                 ImportStage(context, Stage.LoadFile);
                 context.file = ASEParser.Parse(File.ReadAllBytes(path));
-                context.atlasPath = Path.Combine(settings.atlasOutputDirectory + "/" + context.fileNameNoExt + ".png");//!
                 context.prefabDirectory = Path.Combine(settings.prefabsDirectory, context.fileNameNoExt + ".prefab");
 
                 if (settings.controllerPolicy == AnimControllerOutputPolicy.CreateOrOverride)
@@ -191,7 +190,7 @@ namespace MetaSprite
                         }
                     });
 
-                if (context.rootGameObject != null)
+                if (context.rootGameObject != null && !settings.generateInScene)
                     UnityEngine.Object.DestroyImmediate(context.rootGameObject);
             }
             catch (Exception e)

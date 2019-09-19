@@ -27,7 +27,6 @@ namespace MetaSprite
         public string prefabDirectory;
 
         // The local texture coordinate for bottom-left point of each frame's crop rect, in Unity texture space.
-        public List<Vector2> spriteCropPositions = new List<Vector2>();
         public Dictionary<int, List<Vector2>> groupIndex2SpriteCropPositions = new Dictionary<int, List<Vector2>>();
 
         public Dictionary<FrameTag, AnimationClip> generatedClips = new Dictionary<FrameTag, AnimationClip>();
@@ -127,11 +126,10 @@ namespace MetaSprite
             {
                 ImportStage(context, Stage.LoadFile);
                 context.file = ASEParser.Parse(File.ReadAllBytes(path));
-                context.prefabDirectory = Path.Combine(settings.prefabsDirectory, context.fileNameNoExt + ".prefab");
-
                 if (settings.controllerPolicy == AnimControllerOutputPolicy.CreateOrOverride)
                     context.animControllerPath = settings.animControllerOutputPath + "/" + context.fileNameNoExt + ".controller";
                 context.animClipDirectory = settings.clipOutputDirectory;
+                context.prefabDirectory = Path.Combine(settings.prefabsDirectory, context.fileNameNoExt + ".prefab");
 
                 // Create paths in advance
                 Directory.CreateDirectory(settings.atlasOutputDirectory);
@@ -140,16 +138,13 @@ namespace MetaSprite
                     Directory.CreateDirectory(Path.GetDirectoryName(context.animControllerPath));
                 if (settings.generatePrefab)
                     Directory.CreateDirectory(settings.prefabsDirectory);
-                //
 
                 ImportStage(context, Stage.GenerateAtlas);
-                foreach (var group in context.file.mapGroup.Values)
+                foreach (var group in context.file.name2Group.Values)
                 {
-                    if (group.layers.Count == 0) continue;
+                    if (group.contentLayers.Count == 0) continue;
                     string atlasPath = Path.Combine(settings.atlasOutputDirectory, context.fileNameNoExt + "_" + group.Name + ".png");
-                    var sprites = AtlasGenerator.GenerateAtlas(context,
-                        group.layers.Where(it => it.type == LayerType.Content).ToList(),
-                        atlasPath);
+                    var sprites = AtlasGenerator.GenerateAtlas(context, group.contentLayers, atlasPath);
                     context.mapSprite.Add(group.Name, sprites);
                 }
 
@@ -166,8 +161,7 @@ namespace MetaSprite
                 }
 
                 ImportStage(context, Stage.InvokeMetaLayerProcessor);
-                context.file.layers.Values
-                    .Where(layer => layer.type == LayerType.Meta)
+                context.file.metaLayers.Values
                     .Select(layer =>
                     {
                         MetaLayerProcessor processor;
@@ -190,6 +184,7 @@ namespace MetaSprite
                         }
                     });
 
+                //Clean gameobject
                 if (context.rootGameObject != null && !settings.generateInScene)
                     UnityEngine.Object.DestroyImmediate(context.rootGameObject);
             }
@@ -292,9 +287,9 @@ namespace MetaSprite
             }
 
             // Generate main image
-            foreach (var group in ctx.file.mapGroup.Values)
+            foreach (var group in ctx.file.name2Group.Values)
             {
-                if (group.layers.Count == 0) continue;
+                if (group.contentLayers.Count == 0) continue;
                 GenerateClipImageLayer(ctx, group.Path, ctx.mapSprite[group.Name]);
             }
         }
@@ -342,8 +337,8 @@ namespace MetaSprite
             var controller = AssetDatabase.LoadAssetAtPath<AnimatorController>(ctx.animControllerPath);
             ctx.rootGameObject.AddComponent<Animator>().runtimeAnimatorController = controller;
 
-            var mapGroup = ctx.file.mapGroup;
-            foreach (var group in mapGroup.Values)
+            var name2Group = ctx.file.name2Group;
+            foreach (var group in name2Group.Values)
             {
                 var gameObject = new GameObject(group.Name);
                 if (group.Name == "Sprites")
@@ -352,12 +347,12 @@ namespace MetaSprite
                 }
                 else
                 {
-                    var father = ctx.name2GameObject[mapGroup[group.parent.index].Name];
+                    var father = ctx.name2GameObject[group.parent.Name];
                     gameObject.transform.parent = father.transform;
                 }
                 ctx.name2GameObject.Add(group.Name, gameObject);
 
-                if (group.layers.Count != 0)
+                if (group.contentLayers.Count != 0)
                 {
                     var sr = gameObject.AddComponent<SpriteRenderer>();
                     sr.sprite = ctx.mapSprite[group.Name][0];

@@ -5,6 +5,7 @@ using UnityEngine;
 using System;
 using System.Text;
 using System.IO.Compression;
+using System.Linq;
 
 using MetaSprite.Internal;
 
@@ -40,8 +41,10 @@ namespace MetaSprite
         public List<Frame> frames = new List<Frame>();
 
         public Group rootGroup = new Group();
-        public Dictionary<int, Group> mapGroup = new Dictionary<int, Group>();
-        public Dictionary<int, Layer> layers = new Dictionary<int, Layer>();
+        public Dictionary<int, Group> index2Group = new Dictionary<int, Group>();
+        public Dictionary<string, Group> name2Group = new Dictionary<string, Group>();
+        public Dictionary<int, Layer> contentLayers = new Dictionary<int, Layer>();
+        public Dictionary<int, Layer> metaLayers = new Dictionary<int, Layer>();
         public List<FrameTag> frameTags = new List<FrameTag>();
 
         public ASEFile()
@@ -50,16 +53,26 @@ namespace MetaSprite
             rootGroup.Name = "Sprites";
             rootGroup.parent = null;
             rootGroup.parentIndex = -2;
-            mapGroup.Add(rootGroup.index, rootGroup);
+            index2Group.Add(rootGroup.index, rootGroup);
+            name2Group.Add(rootGroup.Name, rootGroup);
         }
 
         public Layer FindLayer(int index)
         {
-            if (layers.TryGetValue(index, out Layer a))
+            Layer a;
+            if (contentLayers.TryGetValue(index, out a) || metaLayers.TryGetValue(index, out a))
             {
                 return a;
             }
             return null;
+        }
+
+        public Group[] AvailableGroups
+        {
+            get
+            {
+                return name2Group.Values.Where(it => it.Available).ToArray();
+            }
         }
     }
 
@@ -74,7 +87,6 @@ namespace MetaSprite
     {
         public int index;
         public int parentIndex; // =1 if level==0 (have no parent), otherwise the index of direct parent
-        //public bool visible;
         public BlendMode blendMode;
         public float opacity;
         public string layerName;
@@ -155,7 +167,11 @@ namespace MetaSprite
         public string originName;
         public Group parent = null;
         public List<Group> childGroup = new List<Group>();
-        public List<Layer> layers = new List<Layer>();
+        public List<Layer> contentLayers = new List<Layer>();
+        public List<Layer> metaLayers = new List<Layer>();
+        //public Vector2 transformPos = Vector2.zero;
+        //public int maxX = int.MaxValue, maxY = int.MaxValue;
+        //public int minX = 0, minY = 0;
 
         public bool Available { get { return !originName.StartsWith("//"); } }
         public bool HaveTarget { get { return destName.Length != 0; } }
@@ -197,6 +213,19 @@ namespace MetaSprite
                 return path;
             }
         }
+        //root+a+b+c=C's WorldPos
+        //C's LocalPos = this.transformPos - WorldSpaceSubNum
+        //public Vector2 WorldSpaceSubNum
+        //{
+        //    get
+        //    {
+        //        if (parent is null)
+        //            return transformPos;
+        //        return parent.WorldSpaceSubNum + transformPos;
+        //    }
+        //}
+        //public int Width { get { return maxX - minX + 1; } }
+        //public int Height { get { return maxY - minY + 1; } }
     }
 
     internal enum CelType
@@ -320,8 +349,8 @@ namespace MetaSprite
                 UserDataAcceptor lastUserdataAcceptor = null;
 
                 //TempMaps
-                Dictionary<int, Group> tempMapGroup = new Dictionary<int, Group>(file.mapGroup);
-                Dictionary<string, Group> destName2Group = new Dictionary<string, Group>();
+                //Dictionary<int, Group> tempMapGroup = new Dictionary<int, Group>(file.index2Group);
+                //Dictionary<string, Group> destName2Group = new Dictionary<string, Group>();
                 var levelToIndex = new Dictionary<int, int>();
 
                 for (int i = 0; i < frameCount; ++i)
@@ -363,24 +392,23 @@ namespace MetaSprite
                                         if (layerType == 1)
                                         {
                                             var group = new Group();
-                                            //group.visible = visible;
                                             group.index = readLayerIndex;
                                             group.parentIndex = childLevel == 0 ? -1 : levelToIndex[childLevel - 1];
-                                            group.parent = tempMapGroup[group.parentIndex];
+                                            group.parent = file.index2Group[group.parentIndex];
                                             group.Name = name;
 
                                             if (name.StartsWith("//"))
                                             {
-                                                tempMapGroup.Add(group.index, group.parent);
+                                                file.index2Group.Add(group.index, group.parent);
                                             }
                                             else
                                             {
                                                 if (group.HaveTarget)
                                                 {
                                                     Group destGroup;
-                                                    if (destName2Group.ContainsKey(group.destName))
+                                                    if (file.name2Group.ContainsKey(group.destName))
                                                     {
-                                                        destGroup = destName2Group[group.destName];
+                                                        destGroup = file.name2Group[group.destName];
                                                     }
                                                     else
                                                     {
@@ -388,9 +416,8 @@ namespace MetaSprite
                                                         destGroup.Name = destGroup.destName;
                                                         destGroup.index = -group.index - 100;//speciality index
 
-                                                        destName2Group.Add(destGroup.Name, destGroup);
-                                                        tempMapGroup.Add(destGroup.index, destGroup);
-                                                        file.mapGroup.Add(destGroup.index, destGroup);
+                                                        file.index2Group.Add(destGroup.index, destGroup);
+                                                        file.name2Group.Add(destGroup.Name, destGroup);
                                                         destGroup.parent.childGroup.Add(destGroup);
 
                                                         group = new Group();
@@ -400,8 +427,9 @@ namespace MetaSprite
                                                     group.parentIndex = destGroup.index;
                                                     group.parent = destGroup;
                                                 }
-                                                tempMapGroup.Add(group.index, group);
-                                                file.mapGroup.Add(group.index, group);
+                                                file.index2Group.Add(group.index, group);
+                                                if (!file.name2Group.ContainsKey(group.Name))
+                                                    file.name2Group.Add(group.Name, group);
                                                 group.parent.childGroup.Add(group);
                                             }
                                         }
@@ -411,7 +439,7 @@ namespace MetaSprite
                                             var layer = new Layer();
                                             //layer.visible = visible;
                                             layer.parentIndex = childLevel == 0 ? -1 : levelToIndex[childLevel - 1];
-                                            layer.group = tempMapGroup[layer.parentIndex];
+                                            layer.group = file.index2Group[layer.parentIndex];
                                             layer.blendMode = blendMode;
                                             layer.opacity = opacity;
                                             layer.layerName = name;
@@ -420,11 +448,14 @@ namespace MetaSprite
                                             if (layer.type == LayerType.Meta)
                                             {
                                                 MetaLayerParser.Parse(layer);
+                                                file.metaLayers.Add(layer.index, layer);
+                                                file.index2Group[layer.parentIndex].metaLayers.Add(layer);
                                             }
-
-                                            file.layers.Add(layer.index, layer);
-                                            tempMapGroup[layer.parentIndex].layers.Add(layer);
-
+                                            else
+                                            {
+                                                file.contentLayers.Add(layer.index, layer);
+                                                file.index2Group[layer.parentIndex].contentLayers.Add(layer);
+                                            }
                                         }
                                     }
                                     if (levelToIndex.ContainsKey(childLevel))

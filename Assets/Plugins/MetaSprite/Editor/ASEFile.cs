@@ -399,6 +399,7 @@ namespace MetaSprite
 
                                             if (name.StartsWith("//"))
                                             {
+                                                //Add map
                                                 file.index2Group.Add(group.index, group.parent);
                                             }
                                             else
@@ -427,10 +428,20 @@ namespace MetaSprite
                                                     group.parentIndex = destGroup.index;
                                                     group.parent = destGroup;
                                                 }
-                                                file.index2Group.Add(group.index, group);
-                                                if (!file.name2Group.ContainsKey(group.Name))
+
+                                                if (file.name2Group.ContainsKey(group.Name))
+                                                {
+                                                    group = file.name2Group[group.Name];
+                                                    file.index2Group.Remove(group.index);
+                                                    group.index = readLayerIndex;
+                                                    file.index2Group.Add(group.index, group);
+                                                }
+                                                else
+                                                {
+                                                    file.index2Group.Add(group.index, group);
                                                     file.name2Group.Add(group.Name, group);
-                                                group.parent.childGroup.Add(group);
+                                                    group.parent.childGroup.Add(group);
+                                                }
                                             }
                                         }
                                         //Layers

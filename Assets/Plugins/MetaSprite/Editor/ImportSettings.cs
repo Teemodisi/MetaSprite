@@ -48,6 +48,7 @@ namespace MetaSprite
 
         public int orderInLayerInterval = 5;
 
+        public int sortIndex = 0;
         public int spritesSortInLayer = 0;
         public Vector2 PivotRelativePos
         {
@@ -92,10 +93,11 @@ namespace MetaSprite
                     GL.Label("Prefab Options");
                 }
                 EGL.BeginHorizontal();
-                int index = 0;
+
                 string[] opetions = SortingLayer.layers.Select(it => it.name).ToArray();
-                index = EGL.Popup("Sort In Layer", index, opetions);
-                settings.spritesSortInLayer = SortingLayer.NameToID(opetions[index]);
+                settings.sortIndex = EGL.Popup("Sort In Layer", settings.sortIndex, opetions);
+                settings.spritesSortInLayer = SortingLayer.NameToID(opetions[settings.sortIndex]);
+
                 if (GL.Button("Edit", GL.Width(36)))
                 {
                     Selection.objects = AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/TagManager.asset");

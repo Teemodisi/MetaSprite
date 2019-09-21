@@ -44,8 +44,6 @@ namespace MetaSprite
 
         public bool generatePrefab = false;
 
-        public bool generateInScene = false;
-
         public int orderInLayerInterval = 5;
 
         public int sortIndex = 0;
@@ -104,7 +102,6 @@ namespace MetaSprite
                 }
                 EGL.EndHorizontal();
                 settings.orderInLayerInterval = EGL.IntField("Interval of order in layer", settings.orderInLayerInterval);
-                settings.generateInScene = EGL.Toggle("Put it in this Scene", settings.generateInScene);
             }
 
             EGL.Space();

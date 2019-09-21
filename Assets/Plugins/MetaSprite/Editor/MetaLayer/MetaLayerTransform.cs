@@ -97,6 +97,7 @@ namespace MetaSprite
                             var y = AnimationUtility.GetEditorCurve(clip, yb).keys.Where(it => Mathf.Approximately(it.time, t)).ToArray()[0].value;
 
                             pos -= new Vector2(x, y);
+                            frames[f] = pos;
                         }
                         curveX.AddKey(t, pos.x);
                         curveY.AddKey(t, pos.y);
@@ -104,6 +105,10 @@ namespace MetaSprite
 
                     t += file.frames[f].duration * 1e-3f;
                 }
+                //Completing the end frame for the loop
+                //t -= 1.0f / clip.frameRate;
+                curveX.AddKey(t, frames[frameTag.from].x);
+                curveY.AddKey(t, frames[frameTag.from].y);
 
                 if (curveX.length > 0)
                 {
@@ -118,7 +123,7 @@ namespace MetaSprite
             }
             GameObject gameObject = ctx.name2GameObject[layer.group.Name];
             Vector3 position = frames[0];
-            gameObject.transform.position= position;
+            gameObject.transform.position = position;
         }
 
 
@@ -126,7 +131,9 @@ namespace MetaSprite
         {
             for (int i = 0; i < curve.length; ++i)
             {
+                AnimationUtility.SetKeyRightTangentMode(curve, i, TangentMode.Constant);
                 AnimationUtility.SetKeyLeftTangentMode(curve, i, TangentMode.Constant);
+                AnimationUtility.SetKeyBroken(curve, i, true);
             }
         }
 

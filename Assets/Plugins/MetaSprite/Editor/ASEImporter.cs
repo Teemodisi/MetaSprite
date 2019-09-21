@@ -185,11 +185,8 @@ namespace MetaSprite
                     });
 
                 //Clean gameobject
-                if (context.rootGameObject != null && !settings.generateInScene)
-                {
-                    PrefabUtility.SaveAsPrefabAssetAndConnect(context.rootGameObject, context.prefabDirectory, InteractionMode.UserAction);
-                    UnityEngine.Object.DestroyImmediate(context.rootGameObject);
-                }
+                PrefabUtility.SaveAsPrefabAssetAndConnect(context.rootGameObject, context.prefabDirectory, InteractionMode.UserAction);
+                UnityEngine.Object.DestroyImmediate(context.rootGameObject);
             }
             catch (Exception e)
             {

@@ -82,6 +82,7 @@ namespace MetaSprite
                                curveY = new AnimationCurve();
 
                 float t = 0;
+                Vector2 firstFramePos = frames[frameTag.from];
                 for (int f = frameTag.from; f <= frameTag.to; ++f)
                 {
                     if (frames.ContainsKey(f))
@@ -97,7 +98,7 @@ namespace MetaSprite
                             var y = AnimationUtility.GetEditorCurve(clip, yb).keys.Where(it => Mathf.Approximately(it.time, t)).ToArray()[0].value;
 
                             pos -= new Vector2(x, y);
-                            frames[f] = pos;
+                            if (f == frameTag.from) firstFramePos = pos;
                         }
                         curveX.AddKey(t, pos.x);
                         curveY.AddKey(t, pos.y);
@@ -107,8 +108,8 @@ namespace MetaSprite
                 }
                 //Completing the end frame for the loop
                 //t -= 1.0f / clip.frameRate;
-                curveX.AddKey(t, frames[frameTag.from].x);
-                curveY.AddKey(t, frames[frameTag.from].y);
+                curveX.AddKey(t, firstFramePos.x);
+                curveY.AddKey(t, firstFramePos.y);
 
                 if (curveX.length > 0)
                 {

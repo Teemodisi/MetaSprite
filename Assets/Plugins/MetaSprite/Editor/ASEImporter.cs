@@ -360,7 +360,7 @@ namespace MetaSprite
                     //var a = gameObject.transform.position;
                     //a.z = -group.index * 0.01f;
                     //gameObject.transform.position = a;
-                    sr.sortingOrder = group.index * ctx.settings.orderInLayerInterval;
+                    sr.sortingOrder = group.contentLayers.Min(layer => layer.index);
                     sr.sortingLayerID = ctx.settings.spritesSortInLayer;
                 }
             }

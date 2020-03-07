@@ -64,6 +64,7 @@ namespace MetaSprite
         public override void OnInspectorGUI()
         {
             var settings = (ImportSettings)target;
+
             EditorGUI.BeginChangeCheck();
             Undo.RecordObject(settings, "AseFileSettings");
 
@@ -126,7 +127,7 @@ namespace MetaSprite
 
             if (EditorGUI.EndChangeCheck())
             {
-                //EditorUtility.SetDirty(settings);
+                EditorUtility.SetDirty(settings);
             }
         }
 

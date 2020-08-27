@@ -1,132 +1,90 @@
-﻿using System.Collections;
-using System.Collections.Generic;
-using UnityEngine;
-
-using UnityEditor;
-using System.Linq;
-using System.IO;
-
-using GL = UnityEngine.GUILayout;
-using EGL = UnityEditor.EditorGUILayout;
-
-using MetaSprite.Internal;
+﻿using Sirenix.Utilities;
 using System;
+using System.Collections.Generic;
+using System.Linq;
+using ICSharpCode.NRefactory.Ast;
+using UnityEditor;
+using UnityEngine;
+using EGL = UnityEditor.EditorGUILayout;
+using GL = UnityEngine.GUILayout;
 
 namespace MetaSprite
 {
-
     public static class ImportMenu
     {
-
         [MenuItem("Assets/Aseprite/Import", priority = 60)]
-        static void MenuClicked()
+        private static void MenuClicked()
         {
             ASEImporter.Refresh();
             DoImport(GetSelectedAseprites());
         }
 
         [MenuItem("Assets/Aseprite/Import", true)]
-        static bool ValidateMenu()
+        private static bool ValidateMenu()
         {
             return GetSelectedAseprites().Count() > 0;
         }
 
         [MenuItem("Assets/Aseprite/File Settings", priority = 60)]
-        static void EditAssetSettings()
+        private static void EditAssetSettings()
         {
-            var aseprites = GetSelectedAseprites();
-            var path = GetImportSettingsPath(aseprites[0]);
-            var ret = (ImportSettingsReference)AssetDatabase.LoadAssetAtPath(path, typeof(ImportSettingsReference));
-            if (ret == null)
-            {
-                ret = ScriptableObject.CreateInstance<ImportSettingsReference>();
-                AssetDatabase.CreateAsset(ret, path);
-            }
-
             var size = new Vector2(Screen.width, Screen.height);
             var rect = new Rect(size.x / 2, size.y / 2, 250, 200);
-            var window = (InspectSettingsWindow)EditorWindow.CreateInstance(typeof(InspectSettingsWindow));
+            var window = ScriptableObject.CreateInstance<InspectSettingsWindow>();
             window.position = rect;
-            window._Init(ret);
+            window._Init(GetSelectedAseprites());
             window.ShowPopup();
         }
 
         [MenuItem("Assets/Aseprite/File Settings", true)]
-        static bool ValidateEditAssetSettings()
+        private static bool ValidateEditAssetSettings()
         {
             return GetSelectedAseprites().Length == 1;
         }
 
         [MenuItem("Assets/Aseprite/Clear File Settings", priority = 60)]
-        static void ClearAssetSettings()
+        private static void ClearAssetSettings()
         {
             GetSelectedAseprites()
-                .Select(it => GetImportSettingsPath(it))
+                .Select(AssetDatabase.GetAssetPath)
                 .ToList()
-                .ForEach(it => AssetDatabase.DeleteAsset(it));
+                .ForEach(it =>
+                {
+                    var import = AssetImporter.GetAtPath(it);
+                    import.userData = "";
+                    import.SaveAndReimport();
+                });
         }
 
         [MenuItem("Assets/Aseprite/Clear File Settings", true)]
-        static bool ValidateClearFileSettings()
+        private static bool ValidateClearFileSettings()
         {
             return GetSelectedAseprites().Length > 0;
         }
 
-        static string pluginPath_;
-
-        static string pluginPath
-        {
-            get
-            {
-                if (pluginPath_ != null)
-                {
-                    return pluginPath_;
-                }
-
-                var testInstance = ScriptableObject.CreateInstance<ProjectTestInstance>();
-                var script = MonoScript.FromScriptableObject(testInstance);
-                var scriptPath = AssetDatabase.GetAssetPath(script);
-
-                ScriptableObject.DestroyImmediate(testInstance, true);
-
-                pluginPath_ = Path.GetDirectoryName(Path.GetDirectoryName(Path.GetDirectoryName(scriptPath)));
-
-                return pluginPath_;
-            }
-        }
-
-        static string GetImportSettingsPath(DefaultAsset asset)
-        {
-            var guid = AssetDatabase.AssetPathToGUID(AssetDatabase.GetAssetPath(asset));
-            var path = pluginPath + "/FileSettings/" + guid + ".asset";
-            return path;
-        }
-
-        static void DoImport(DefaultAsset[] assets)
+        private static void DoImport(DefaultAsset[] assets)
         {
             foreach (var asset in assets)
             {
-                var settingsPath = GetImportSettingsPath(asset);
-                var reference = (ImportSettingsReference)AssetDatabase.LoadAssetAtPath(settingsPath, typeof(ImportSettingsReference));
-                if (!reference)
+                var metaData = GetMetaData(asset);
+                if (metaData == null)
                 {
-                    CreateSettingsThenImport(assets);
+                    CreateMetaDataThenImport(assets);
                     return;
                 }
-            }
 
-            foreach (var asset in assets)
-            {
-                var settingsPath = GetImportSettingsPath(asset);
-                var reference = (ImportSettingsReference)AssetDatabase.LoadAssetAtPath(settingsPath, typeof(ImportSettingsReference));
-                if (reference.settings)
-                    ASEImporter.Import(asset, reference.settings);
-                else
-                    Debug.LogWarning("File " + asset.name + " has empty import settings, it is ignored.");
+                var guid = metaData.metaSpriteSettingsGuid;
+                var settings = AssetDatabase.LoadAssetAtPath<ImportSettings>(AssetDatabase.GUIDToAssetPath(guid));
+                if (settings != null)
+                {
+                    ASEImporter.Import(asset, settings);
+                    return;
+                }
+                Debug.LogWarning("File " + asset.name + " has empty import metaSpriteImporterSettings, it is ignored.");
             }
         }
 
-        static DefaultAsset[] GetSelectedAseprites()
+        private static DefaultAsset[] GetSelectedAseprites()
         {
             return Selection.GetFiltered<DefaultAsset>(SelectionMode.DeepAssets)
                             .Where(it =>
@@ -137,14 +95,27 @@ namespace MetaSprite
                             .ToArray();
         }
 
-        static void CreateSettingsThenImport(DefaultAsset[] assets)
+        private static MetaSpriteImportData GetMetaData(DefaultAsset asset)
+        {
+            var path = AssetDatabase.GetAssetPath(asset);
+            var import = AssetImporter.GetAtPath(path);
+            return JsonUtility.FromJson<MetaSpriteImportData>(import.userData);
+        }
+
+        private static string GetSettingsPath(DefaultAsset asset)
+        {
+            var data = GetMetaData(asset);
+            return data == null ? null : AssetDatabase.GUIDToAssetPath(data.metaSpriteSettingsGuid);
+        }
+
+        private static void CreateMetaDataThenImport(DefaultAsset[] assets)
         {
             var size = new Vector2(Screen.width, Screen.height);
             var rect = new Rect(size.x / 2, size.y / 2, 250, 200);
-            var window = (CreateSettingsWindow)EditorWindow.CreateInstance(typeof(CreateSettingsWindow));
+            var window = ScriptableObject.CreateInstance<CreateSettingsWindow>();
             window.position = rect;
 
-            var paths = assets.Select(it => GetImportSettingsPath(it)).ToList();
+            var paths = assets.Select(AssetDatabase.GetAssetPath).ToList();
 
             window._Init(paths, settings =>
             {
@@ -157,57 +128,84 @@ namespace MetaSprite
             window.ShowPopup();
         }
 
-        class InspectSettingsWindow : EditorWindow
+        private class InspectSettingsWindow : EditorWindow
         {
-            Editor editor;
+            private Editor m_Editor;
+            private readonly List<string> m_Paths = new List<string>();
+            private ImportSettingsReference m_Reference;
 
-            public void _Init(ImportSettingsReference reference)
+            public void _Init(DefaultAsset[] selectedAssets)
             {
-                editor = Editor.CreateEditor(reference);
+                selectedAssets.ForEach(x => m_Paths.Add(AssetDatabase.GetAssetPath(x)));
+                var asepritesPath = m_Paths[0];
+                var import = AssetImporter.GetAtPath(asepritesPath);
+                var importData = JsonUtility.FromJson<MetaSpriteImportData>(import.userData);
+                m_Reference = CreateInstance<ImportSettingsReference>();
+                if (importData != null)
+                {
+                    var settingsPath = AssetDatabase.GUIDToAssetPath(importData.metaSpriteSettingsGuid);
+                    m_Reference.ImporterSettings = AssetDatabase.LoadAssetAtPath<ImportSettings>(settingsPath);
+                }
+                m_Editor = Editor.CreateEditor(m_Reference);
+                AssetDatabase.SaveAssets();
             }
 
-            void OnGUI()
+            private void OnGUI()
             {
-                editor.OnInspectorGUI();
-
+                m_Editor.OnInspectorGUI();
                 if (CenteredButton("Close"))
+                {
+                    var guid = AssetDatabase.AssetPathToGUID(AssetDatabase.GetAssetPath(m_Reference.ImporterSettings));
+                    var data = new MetaSpriteImportData
+                    {
+                        metaSpriteSettingsGuid = guid
+                    };
+                    m_Paths.ForEach(x =>
+                    {
+                        var import = AssetImporter.GetAtPath(x);
+                        import.userData = JsonUtility.ToJson(data);
+                        import.SaveAndReimport();
+                    });
                     this.Close();
+                }
             }
-
         }
 
-        class CreateSettingsWindow : EditorWindow
+        private class CreateSettingsWindow : EditorWindow
         {
+            private List<string> assetPaths;
+            private Action<ImportSettings> finishedAction;
 
-            List<string> paths;
-            Action<ImportSettings> finishedAction;
+            private ImportSettings settings;
 
-            ImportSettings settings;
-
-            public CreateSettingsWindow() { }
-
-            internal void _Init(List<string> _paths, Action<ImportSettings> _finishedAction)
+            public CreateSettingsWindow()
             {
-                this.paths = _paths;
+            }
+
+            internal void _Init(List<string> _assetPaths, Action<ImportSettings> _finishedAction)
+            {
+                this.assetPaths = _assetPaths;
                 this.finishedAction = _finishedAction;
             }
 
-            void OnGUI()
+            private void OnGUI()
             {
                 EGL.LabelField("Use Settings");
-                settings = (ImportSettings)EGL.ObjectField(settings, typeof(ImportSettings), false);
+                settings = EGL.ObjectField(settings, typeof(ImportSettings), false) as ImportSettings;
 
                 EGL.Space();
 
                 if (settings && CenteredButton("OK"))
                 {
-                    foreach (var path in paths)
+                    var reference = new MetaSpriteImportData
                     {
-                        var instance = ScriptableObject.CreateInstance<ImportSettingsReference>();
-                        instance.settings = settings;
-
-                        Directory.CreateDirectory(Path.GetDirectoryName(path));
-                        AssetDatabase.CreateAsset(instance, path);
+                        metaSpriteSettingsGuid = AssetDatabase.AssetPathToGUID(AssetDatabase.GetAssetPath(settings))
+                    };
+                    foreach (var path in assetPaths)
+                    {
+                        var import = AssetImporter.GetAtPath(path);
+                        import.userData = JsonUtility.ToJson(reference);
+                        import.SaveAndReimport();
                     }
 
                     finishedAction(settings);
@@ -219,10 +217,9 @@ namespace MetaSprite
                     this.Close();
                 }
             }
-
         }
 
-        static bool CenteredButton(string content)
+        private static bool CenteredButton(string content)
         {
             EGL.BeginHorizontal();
             GL.FlexibleSpace();
@@ -231,7 +228,5 @@ namespace MetaSprite
             EGL.EndHorizontal();
             return res;
         }
-
     }
-
 }

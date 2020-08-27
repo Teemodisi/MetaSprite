@@ -184,9 +184,7 @@ namespace MetaSprite
                         }
                     });
 
-                //Clean gameobject
-                PrefabUtility.SaveAsPrefabAssetAndConnect(context.rootGameObject, context.prefabDirectory, InteractionMode.UserAction);
-                UnityEngine.Object.DestroyImmediate(context.rootGameObject);
+
             }
             catch (Exception e)
             {
@@ -298,7 +296,6 @@ namespace MetaSprite
         {
             if (ctx.animControllerPath == null)
             {
-                Debug.LogWarning("No animator controller specified. Controller generation will be ignored");
                 return;
             }
 
@@ -365,7 +362,9 @@ namespace MetaSprite
                 }
             }
 
+            //Clean gameobject
             PrefabUtility.SaveAsPrefabAssetAndConnect(ctx.rootGameObject, ctx.prefabDirectory, InteractionMode.UserAction);
+            UnityEngine.Object.DestroyImmediate(ctx.rootGameObject);
         }
 
 

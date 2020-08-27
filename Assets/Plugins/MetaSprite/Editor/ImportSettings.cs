@@ -5,6 +5,7 @@ using UnityEditor;
 using System.IO;
 using System.Linq;
 using System;
+using Sirenix.OdinInspector.Editor;
 using UnityEditor.Animations;
 
 using GL = UnityEngine.GUILayout;
@@ -12,7 +13,6 @@ using EGL = UnityEditor.EditorGUILayout;
 
 namespace MetaSprite
 {
-
     public enum AnimControllerOutputPolicy
     {
         Skip, CreateOrOverride
@@ -21,8 +21,7 @@ namespace MetaSprite
     [CreateAssetMenu(menuName = "ASE Import Settings")]
     public class ImportSettings : ScriptableObject
     {
-
-        public int ppu = 48;
+        public int ppu = 100;
 
         public SpriteAlignment alignment;
 
@@ -48,6 +47,7 @@ namespace MetaSprite
 
         public int sortIndex = 0;
         public int spritesSortInLayer = 0;
+
         public Vector2 PivotRelativePos
         {
             get
@@ -60,12 +60,9 @@ namespace MetaSprite
     [CustomEditor(typeof(ImportSettings))]
     public class ImportSettingsEditor : Editor
     {
-
         public override void OnInspectorGUI()
         {
             var settings = (ImportSettings)target;
-
-            EditorGUI.BeginChangeCheck();
             Undo.RecordObject(settings, "AseFileSettings");
 
             using (new GL.HorizontalScope(EditorStyles.toolbar))
@@ -124,16 +121,12 @@ namespace MetaSprite
             {
                 settings.prefabsDirectory = PathSelection("Prefab Directory", settings.prefabsDirectory);
             }
-
-            if (EditorGUI.EndChangeCheck())
-            {
-                EditorUtility.SetDirty(settings);
-            }
         }
 
-        string PathSelection(string id, string path)
+        private string PathSelection(string id, string path)
         {
             EGL.BeginHorizontal();
+
             EGL.PrefixLabel(id);
             path = EGL.TextField(path);
             if (GL.Button("...", GL.Width(30)))
@@ -142,10 +135,11 @@ namespace MetaSprite
             }
 
             EGL.EndHorizontal();
+
             return path;
         }
 
-        static string GetAssetPath(string path)
+        private static string GetAssetPath(string path)
         {
             if (path == null)
             {
@@ -171,11 +165,9 @@ namespace MetaSprite
             return path;
         }
 
-        static string Remove(string s, string exactExpression)
+        private static string Remove(string s, string exactExpression)
         {
             return s.Replace(exactExpression, "");
         }
-
     }
-
 }

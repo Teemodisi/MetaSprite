@@ -4,8 +4,7 @@
 /[Bb]uild/
 /[Bb]uilds/
 /Assets/AssetStoreTools*
-/Assets/*
-!/Assets/Plugins/*
+!/Assets/Plugins/MetaSprite
 
 # Visual Studio 2015 cache directory
 /.vs/
@@ -36,9 +35,6 @@ sysinfo.txt
 *.apk
 *.unitypackage
 
-# Plugin test / Auto generated stuffs
-Assets/Plugins/MetaSprite/FileSettings/
-Assets/Plugins/MetaSprite/FileSettings.meta
 Assets/Test/
 Assets/Test.meta
 

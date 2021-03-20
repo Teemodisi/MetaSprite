@@ -1,20 +1,16 @@
-﻿using System.Collections;
+﻿using MetaSprite.Internal;
+using System;
 using System.Collections.Generic;
 using System.IO;
-using System;
+using System.Linq;
 using UnityEditor;
 using UnityEditor.Animations;
 using UnityEngine;
 
-using MetaSprite.Internal;
-using System.Linq;
-
 namespace MetaSprite
 {
-
     public class ImportContext
     {
-
         public ASEFile file;
         public ImportSettings settings;
 
@@ -42,10 +38,15 @@ namespace MetaSprite
 
     public static class ASEImporter
     {
+        private static readonly Dictionary<string, MetaLayerProcessor> layerProcessors = new Dictionary<string, MetaLayerProcessor>();
 
-        static readonly Dictionary<string, MetaLayerProcessor> layerProcessors = new Dictionary<string, MetaLayerProcessor>();
+        public static MetaLayerProcessor getProcessor(string action)
+        {
+            layerProcessors.TryGetValue(action, out var processor);
+            return processor;
+        }
 
-        enum Stage
+        private enum Stage
         {
             LoadFile,
             GenerateAtlas,
@@ -55,12 +56,12 @@ namespace MetaSprite
             InvokeMetaLayerProcessor
         }
 
-        static float GetProgress(this Stage stage)
+        private static float GetProgress(this Stage stage)
         {
             return (float)(int)stage / Enum.GetValues(typeof(Stage)).Length;
         }
 
-        static string GetDisplayString(this Stage stage)
+        private static string GetDisplayString(this Stage stage)
         {
             return stage.ToString();
         }
@@ -93,7 +94,7 @@ namespace MetaSprite
             }
         }
 
-        static Type[] FindAllTypes(Type interfaceType)
+        private static Type[] FindAllTypes(Type interfaceType)
         {
             var types = System.Reflection.Assembly.GetExecutingAssembly()
                 .GetTypes();
@@ -101,16 +102,14 @@ namespace MetaSprite
                         .ToArray();
         }
 
-        struct LayerAndProcessor
+        private struct LayerAndProcessor
         {
             public Layer layer;
             public MetaLayerProcessor processor;
         }
 
-
         public static void Import(DefaultAsset defaultAsset, ImportSettings settings)
         {
-
             var path = AssetDatabase.GetAssetPath(defaultAsset);
 
             var context = new ImportContext
@@ -126,10 +125,10 @@ namespace MetaSprite
             {
                 ImportStage(context, Stage.LoadFile);
                 context.file = ASEParser.Parse(File.ReadAllBytes(path));
-                if (settings.controllerPolicy == AnimControllerOutputPolicy.CreateOrOverride)
+                if (settings.controllerPolicy != AnimControllerOutputPolicy.Skip)
                     context.animControllerPath = settings.animControllerOutputPath + "/" + context.fileNameNoExt + ".controller";
                 context.animClipDirectory = settings.clipOutputDirectory;
-                context.prefabDirectory = Path.Combine(settings.prefabsDirectory, context.fileNameNoExt + ".prefab");
+                context.prefabDirectory = Path.Combine(settings.prefabsDirectory, context.fileNameNoExt + "_Origin.prefab");
 
                 // Create paths in advance
                 Directory.CreateDirectory(settings.atlasOutputDirectory);
@@ -143,9 +142,9 @@ namespace MetaSprite
                 foreach (var group in context.file.name2Group.Values)
                 {
                     if (group.contentLayers.Count == 0) continue;
-                    string atlasPath = Path.Combine(settings.atlasOutputDirectory, context.fileNameNoExt + "_" + group.Name + ".png");
+                    string atlasPath = Path.Combine(settings.atlasOutputDirectory, context.fileNameNoExt + "_" + group.name + ".png");
                     var sprites = AtlasGenerator.GenerateAtlas(context, group.contentLayers, atlasPath);
-                    context.mapSprite.Add(group.Name, sprites);
+                    context.mapSprite.Add(group.name, sprites);
                 }
 
                 ImportStage(context, Stage.GenerateClips);
@@ -154,57 +153,38 @@ namespace MetaSprite
                 ImportStage(context, Stage.GenerateController);
                 GenerateAnimController(context);
 
-                if (settings.generatePrefab)
-                {
-                    ImportStage(context, Stage.GeneratePrefab);
-                    GeneratePrefab(context);
-                }
+                ImportStage(context, Stage.GeneratePrefab);
+                GeneratePrefab(context);
 
                 ImportStage(context, Stage.InvokeMetaLayerProcessor);
-                context.file.metaLayers.Values
-                    .Select(layer =>
-                    {
-                        MetaLayerProcessor processor;
-                        layerProcessors.TryGetValue(layer.actionName, out processor);
-                        return new LayerAndProcessor { layer = layer, processor = processor };
-                    })
-                    .OrderBy(it => it.processor != null ? it.processor.executionOrder : 0)
-                    .ToList()
-                    .ForEach(it =>
-                    {
-                        var layer = it.layer;
-                        var processor = it.processor;
-                        if (processor != null)
-                        {
-                            processor.Process(context, layer);
-                        }
-                        else
-                        {
-                            Debug.LogWarning(string.Format("No processor for meta layer {0}", layer.layerName));
-                        }
-                    });
-
-
+                MetaProcess(context);
             }
             catch (Exception e)
             {
                 Debug.LogException(e);
+                EditorUtility.ClearProgressBar();
             }
 
             ImportEnd(context);
         }
 
-        static void ImportStage(ImportContext ctx, Stage stage)
+        private static void ImportStage(ImportContext ctx, Stage stage)
         {
             EditorUtility.DisplayProgressBar("Importing " + ctx.fileName, stage.GetDisplayString(), stage.GetProgress());
         }
 
-        static void ImportEnd(ImportContext ctx)
+        private static void ImportEnd(ImportContext ctx)
         {
+            if (ctx.settings.generatePrefab)
+            {
+                //Clean gameobject
+                PrefabUtility.SaveAsPrefabAssetAndConnect(ctx.rootGameObject, ctx.prefabDirectory, InteractionMode.UserAction);
+                UnityEngine.Object.DestroyImmediate(ctx.rootGameObject);
+            }
             EditorUtility.ClearProgressBar();
         }
 
-        public static void GenerateClipImageLayer(ImportContext ctx, string childPath, List<Sprite> frameSprites)
+        public static void GenerateClipImageLayer(ImportContext ctx, string childPath, System.Collections.Generic.List<Sprite> frameSprites)
         {
             foreach (var tag in ctx.file.frameTags)
             {
@@ -241,7 +221,7 @@ namespace MetaSprite
             }
         }
 
-        static void GenerateAnimClips(ImportContext ctx)
+        private static void GenerateAnimClips(ImportContext ctx)
         {
             Directory.CreateDirectory(ctx.animClipDirectory);
             var fileNamePrefix = ctx.animClipDirectory + '/' + ctx.fileNameNoExt;
@@ -288,13 +268,13 @@ namespace MetaSprite
             foreach (var group in ctx.file.name2Group.Values)
             {
                 if (group.contentLayers.Count == 0) continue;
-                GenerateClipImageLayer(ctx, group.Path, ctx.mapSprite[group.Name]);
+                GenerateClipImageLayer(ctx, group.path, ctx.mapSprite[group.name]);
             }
         }
 
-        static void GenerateAnimController(ImportContext ctx)
+        private static void GenerateAnimController(ImportContext ctx)
         {
-            if (ctx.animControllerPath == null)
+            if (ctx.settings.controllerPolicy == AnimControllerOutputPolicy.Skip)
             {
                 return;
             }
@@ -303,6 +283,10 @@ namespace MetaSprite
             if (!ctx.controller)
             {
                 ctx.controller = AnimatorController.CreateAnimatorControllerAtPath(ctx.animControllerPath);
+            }
+            else if (ctx.settings.controllerPolicy == AnimControllerOutputPolicy.CreateNotOverride)
+            {
+                return;
             }
 
             var layer = ctx.controller.layers[0];
@@ -327,7 +311,7 @@ namespace MetaSprite
             EditorUtility.SetDirty(ctx.controller);
         }
 
-        static void GeneratePrefab(ImportContext ctx)
+        private static void GeneratePrefab(ImportContext ctx)
         {
             ctx.rootGameObject = new GameObject(ctx.fileNameNoExt);
             ctx.name2GameObject.Add(ctx.fileNameNoExt, ctx.rootGameObject);
@@ -337,39 +321,58 @@ namespace MetaSprite
             var name2Group = ctx.file.name2Group;
             foreach (var group in name2Group.Values)
             {
-                var gameObject = new GameObject(group.Name);
-                if (group.Name == "Sprites")
+                var gameObject = new GameObject(group.name);
+                if (group.name == "Sprites")
                 {
                     gameObject.transform.parent = ctx.rootGameObject.transform;
                 }
                 else
                 {
-                    var father = ctx.name2GameObject[group.parent.Name];
+                    var father = ctx.name2GameObject[group.parent.name];
                     gameObject.transform.parent = father.transform;
                 }
-                ctx.name2GameObject.Add(group.Name, gameObject);
+                ctx.name2GameObject.Add(group.name, gameObject);
 
                 if (group.contentLayers.Count != 0)
                 {
                     var sr = gameObject.AddComponent<SpriteRenderer>();
-                    sr.sprite = ctx.mapSprite[group.Name][0];
+                    sr.sprite = ctx.mapSprite[group.name][0];
                     //uncomment these codes, you can see how it sort in 3D view
                     //var a = gameObject.transform.position;
-                    //a.z = -group.index * 0.01f;
+                    //a.z = -group.layerIndex * 0.01f;
                     //gameObject.transform.position = a;
-                    sr.sortingOrder = group.contentLayers.Min(layer => layer.index);
+                    sr.sortingOrder = group.contentLayers.Min(layer => layer.layerIndex);
                     sr.sortingLayerID = ctx.settings.spritesSortInLayer;
                 }
             }
-
-            //Clean gameobject
-            PrefabUtility.SaveAsPrefabAssetAndConnect(ctx.rootGameObject, ctx.prefabDirectory, InteractionMode.UserAction);
-            UnityEngine.Object.DestroyImmediate(ctx.rootGameObject);
         }
 
+        private static void MetaProcess(ImportContext ctx)
+        {
+            ctx.file.metaLayers.Values.Reverse()
+                .Select(layer =>
+                {
+                    layerProcessors.TryGetValue(layer.actionName, out var processor);
+                    return new LayerAndProcessor { layer = layer, processor = processor };
+                })
+                .OrderBy(it => it.processor?.executionOrder ?? 0)
+                .ToList()
+                .ForEach(it =>
+                {
+                    var layer = it.layer;
+                    var processor = it.processor;
+                    if (processor != null)
+                    {
+                        processor.Process(ctx, layer);
+                    }
+                    else
+                    {
+                        Debug.LogWarning(string.Format("No processor for meta layer {0}", layer.layerName));
+                    }
+                });
+        }
 
-
-        static void PopulateStateTable(Dictionary<string, AnimatorState> table, AnimatorStateMachine machine)
+        private static void PopulateStateTable(Dictionary<string, AnimatorState> table, AnimatorStateMachine machine)
         {
             foreach (var state in machine.states)
             {
@@ -389,7 +392,5 @@ namespace MetaSprite
                 PopulateStateTable(table, subMachine.stateMachine);
             }
         }
-
     }
-
 }

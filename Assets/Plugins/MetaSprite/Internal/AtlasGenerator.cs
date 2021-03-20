@@ -1,28 +1,25 @@
-﻿using System.Collections;
+﻿using Boo.Lang.Runtime;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using Boo.Lang.Runtime;
 using UnityEditor;
 using UnityEngine;
 
 namespace MetaSprite.Internal
 {
-
     public static class AtlasGenerator
     {
-
-        struct PackData
+        private struct PackData
         {
             public int width, height;
         }
 
-        struct PackPos
+        private struct PackPos
         {
             public int x, y;
         }
 
-        class PackResult
+        private class PackResult
         {
             public int imageSize;
             public List<PackPos> positions;
@@ -113,7 +110,7 @@ namespace MetaSprite.Internal
                 }
             }
 
-            Vector2 oldPivotNorm = settings.PivotRelativePos;
+            Vector2 oldPivotNorm = settings.pivotRelativePos;
 
             var metaList = new List<SpriteMetaData>();
 
@@ -149,10 +146,11 @@ namespace MetaSprite.Internal
 
                 metaList.Add(metadata);
             }
-            ctx.groupIndex2SpriteCropPositions.Add(layers[0].group.index, tempPos);
+            ctx.groupIndex2SpriteCropPositions.Add(layers[0].group.groupIndex, tempPos);
 
             var bytes = texture.EncodeToPNG();
 
+            // File.OpenRead(path)?.Close();
             File.WriteAllBytes(path, bytes);
 
             // Import texture
@@ -175,7 +173,7 @@ namespace MetaSprite.Internal
         }
 
         /// Pack the atlas
-        static PackResult PackAtlas(List<PackData> list, int border)
+        private static PackResult PackAtlas(List<PackData> list, int border)
         {
             int size = 128;
             while (true)
@@ -187,7 +185,7 @@ namespace MetaSprite.Internal
             }
         }
 
-        static PackResult DoPackAtlas(List<PackData> list, int size, int border)
+        private static PackResult DoPackAtlas(List<PackData> list, int size, int border)
         {
             // Pack using the most simple shelf algorithm
 
@@ -230,7 +228,7 @@ namespace MetaSprite.Internal
             };
         }
 
-        static List<Sprite> GetAtlasSprites(string path)
+        private static List<Sprite> GetAtlasSprites(string path)
         {
             // Get frames of the atlas
             var frameSprites = new List<Sprite>();
@@ -248,9 +246,8 @@ namespace MetaSprite.Internal
                 .ToList();
         }
 
-        class FrameImage
+        private class FrameImage
         {
-
             public int minx = int.MaxValue, miny = int.MaxValue,
                        maxx = int.MinValue, maxy = int.MinValue;
 
@@ -258,9 +255,9 @@ namespace MetaSprite.Internal
 
             public int finalHeight { get { return maxy - miny + 1; } }
 
-            readonly int width, height;
+            private readonly int width, height;
 
-            readonly Color[] data;
+            private readonly Color[] data;
 
             public FrameImage(int width, int height)
             {
@@ -287,11 +284,6 @@ namespace MetaSprite.Internal
             {
                 data[y * width + x] = color;
             }
-
         }
-
     }
-
-
 }
-
